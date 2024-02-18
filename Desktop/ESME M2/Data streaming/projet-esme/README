@@ -1,0 +1,123 @@
+J'ai réalisé le projet dans un premier temps sur l'espace virtuel GitHub puis ensuite sur ma machine. Sur Github la récupération des
+données de la RATP est leur envoie sur le topic velib-projet se fait parfaitement cependant le consumer spark ne parvient pas à
+les récupérer pour les traiter par la suite. Sur ma machine tout fonctionne, j'indiquerai les chemins des variables d'environnement
+ainsi que les commandes zookeeper/kafka pour les deux cas.
+
+
+GitHub :
+La première chose à faire avant de commencer le projet est de lancer le serveur Zookeeper et le serveur Kafka.
+
+zookeeper :
+./kafka_2.12-2.6.0/bin/zookeeper-server-start.sh ./kafka_2.12-2.6.0/config/zookeeper.properties
+kafka :
+./kafka_2.12-2.6.0/bin/kafka-server-start.sh ./kafka_2.12-2.6.0/config/server.properties
+
+
+
+1er Etape : Création de topics Kafka velib-projet et velib-projet-clean
+
+./kafka_2.12-2.6.0/bin/kafka-topics.sh --create --topic velib-projet --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+./kafka_2.12-2.6.0/bin/kafka-topics.sh --create --topic velib-projet-final-data --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+
+
+2ème et 3ème Etapes : Collecte et filtrage des Données des Stations Vélib'
+
+Collectes des données dans le script kafka_producer.py
+lien vers API velib: https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json
+
+la fonction : def get_velib_data(): permet de récupérer les données en temps réel et en continue.
+
+La boucle ci dessous permet de récupérer les stations ayant pour code '16107' et '32017' :
+
+    filtred_stations=[]
+
+    for station in stations:
+        if station['stationCode']=='16107' or station['stationCode']=='32017':
+            filtred_stations.append(station)
+    return filtred_stations
+
+
+
+4ème Etape : Publication des Données
+
+Envoie des données filtrées vers le topic Kafka velib-projet pour la collecte grace à la fonction : def velib_producer() dans le script
+kafka_producer.py
+
+    while True:
+        data = get_velib_data()
+        for message in data:
+            producer.send("velib-projet", value=message)
+            print("added:", message)
+        time.sleep(1)
+
+
+
+5ème et 6ème Etapes : Traitement des Données avec Spark Streaming et publication des rsultats dans un topic velib-projet-final-data
+Mise en place d'un consumer Spark qui récupère les données du topic velib-projet et qui effectue un traitement des données
+pour calculer les indicateurs suivants pour chaque code postal des stations filtrées :
+- Le nombre total de vélos disponibles.
+- Le nombre total de vélos mécaniques disponibles.
+- Le nombre total de vélos électriques disponibles.
+
+Le script spark_consumer.py effectue le traitement en provenance du topic velib-projet et publie les résultat dans
+le topic velib-projet-final-data
+
+variable d'environnement :
+os.environ["SPARK_HOME"] = "/workspaces/real_time_data_streaming/spark-3.2.3-bin-hadoop2.7"
+os.environ['PYSPARK_SUBMIT_ARGS'] = '--jars /workspaces/Real_Time_Data_Streaming/spark-streaming-kafka-0-10-assembly_2.12-3.2.3.jar pyspark-shell'
+os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-11-openjdk-amd64"
+
+Lecture des données de velib-projet :
+
+    kafka_df = (spark
+                .readStream
+                .format("kafka")
+                .option("kafka.bootstrap.servers", "localhost:9092")
+                .option("subscribe", "velib-projet")
+                .option("startingOffsets", "earliest")
+                .load()
+                )
+
+Traitement et publication des nouvelles données :
+
+      while True:
+        if final_data != []:
+            final_df = spark.createDataFrame(final_data)
+            final_data = []
+
+            col_selections = ["postcode", "nbr_total", "nbr_elec", "nbr_meca"]
+
+            df_out = (final_df
+                      .withColumn("value", pysqlf.to_json(pysqlf.struct(*col_selections)))
+                      .select("value")
+                      )
+
+            df_out.write \
+                .format("kafka") \
+                .option("kafka.bootstrap.servers", "localhost:9092") \
+                .option("topic", "velib-projet-final-data") \
+                .save()
+
+
+
+Sur mon environnement seul les étapes ci dessous sont différentes  :
+zookeeper :
+./opt/homebrew/bin/apache-zookeeper-3.8.3-bin/bin/zkServer.sh start
+kafka:
+./kafka-server-start.sh ./config/server.properties
+
+Créations des topics :
+/opt/homebrew/bin/kafka_2.13-3.6.1/bin/kafka-topics.sh --create --topic velib-projet --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+/opt/homebrew/bin/kafka_2.13-3.6.1/bin/kafka-topics.sh --create --topic velib-projet-final-data --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+Variables d'environnement sur ma machine :
+os.environ["SPARK_HOME"] = "/Users/goks/spark-3.2.3-bin-hadoop2.7"
+os.environ['PYSPARK_SUBMIT_ARGS'] = '--jars /Users/goks/spark-streaming-kafka-0-10-assembly_2.12-3.2.3.jar pyspark-shell'
+os.environ["JAVA_HOME"] = "/opt/homebrew/opt/openjdk@11"
+
+
+
+8. Versionnement et Partage
+Versionnez tout votre travail dans un dépôt GitHub dédié à ce projet. Assurez-vous que le dépôt soit bien organisé.
+Une fois le projet finalisé, envoyez le lien du dépôt GitHub à l'adresse martinnasse@yahoo.fr

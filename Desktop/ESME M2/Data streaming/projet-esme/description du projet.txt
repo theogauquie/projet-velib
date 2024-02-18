@@ -1,0 +1,52 @@
+Projet de Traitement de Données Temps Réel avec Kafka et Spark Streaming
+
+I. Objectif du Projet
+L'objectif de ce projet est de concevoir et implémenter une pipeline de récupération et de traitement de données en temps réel,
+utilisant Apache Kafka pour la collecte de données et Apache Spark Streaming pour leur traitement. 
+Les données concernent les stations Vélib' (système de vélo-partage à Paris et dans la métropole voisine).
+Ce projet permettra de filtrer, traiter, et agréger les données en temps réel pour produire des indicateurs spécifiques.
+
+II.Instructions Détaillées
+
+1.Création de Topics Kafka
+- Ouvrez l'invite de commande et créez un topic Kafka nommé.
+- Créez un second topic nommé velib-projet-final-data. Ces topics serviront respectivement à la collecte initiale des données et à la réception des données traitées.
+
+2. Collecte des Données des Stations Vélib'
+Implémentez un script pour collecter les données des stations Vélib' en temps réel. Vous pouvez utiliser l'API Vélib' Metropolis disponible publiquement pour accéder aux données.
+
+3. Filtrage des Données
+Filtrez les données collectées pour ne conserver que les informations concernant deux stations spécifiques, identifiées par leurs numéros de station : 16107 et 32017.
+
+4. Publication des Données
+Envoyez les données filtrées vers le topic Kafka velib-projet pour la collecte.
+
+5.Traitement des Données avec Spark Streaming
+Mettez en place un consumer Spark qui récupère les données du topic velib-projet.
+Dans ce consumer, implémentez le traitement des données pour calculer les indicateurs suivants pour chaque code postal des stations filtrées :
+- Le nombre total de vélos disponibles.
+- Le nombre total de vélos mécaniques disponibles.
+- Le nombre total de vélos électriques disponibles.
+
+6. Publication des Résultats
+Envoyez les résultats du traitement vers le topic Kafka velib-projet-final-data.
+
+7. Documentation
+Rédigez un README clair et structuré qui explique le fonctionnement global de votre pipeline et un guide étape par étape pour exécuter le projet.
+
+8. Versionnement et Partage
+Versionnez tout votre travail dans un dépôt GitHub dédié à ce projet. Assurez-vous que le dépôt soit bien organisé.
+Une fois le projet finalisé, envoyez le lien du dépôt GitHub à l'adresse martinnasse@yahoo.fr
+
+
+#/Users/goks/Desktop/ESME\ M2/Data\ streaming/projet-esme/
+#/opt/homebrew/bin/apache-zookeeper-3.8.3-bin/bin
+
+#/opt/homebrew/bin/kafka_2.13-3.6.1/bin/kafka-server-start.sh /opt/homebrew/bin/kafka_2.13-3.6.1/config/server.properties
+
+#lister topics /opt/homebrew/bin/kafka_2.13-3.6.1/bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+
+#créer topic /opt/homebrew/bin/kafka_2.13-3.6.1/bin/kafka-topics.sh --create --topic velib-projet --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+#  /opt/homebrew/bin/kafka_2.13-3.6.1/bin/kafka-topics.sh --create --topic velib-projet-final-data --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+#lien API velib : https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json
